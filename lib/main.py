@@ -68,10 +68,14 @@ class Customer:
     def __init__(self, first_name, last_name):
         self.first_name = first_name
         self.last_name = last_name
+
+    # returns full name
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
     
     # Prints customer's names(details)
     def __str__(self):
-        return f"Customer: {self.first_name} {self.last_name}."
+        return f"Customer: {self.full_name}."
     
     # Fetches the details of reviews of a particular customer
     def reviews(self):
@@ -91,8 +95,42 @@ class Customer:
     
     # Add data to the db
     def save(self):
-        cursor.execute("INSERT INTO customers (first_name, last_name) VALUES (?, ?)", (self.first_name, self.last_name))
+        cursor.execute("""INSERT INTO customers (first_name, last_name) VALUES (?, ?)""", (self.first_name, self.last_name))
         self.id = cursor.lastrowid
+
+    # Fetches details of customer's favorite restaurant based on review ratings
+    def favorite_restaurant(self):
+        cursor.execute("""SELECT * FROM reviews WHERE customer_id = ?""", (self.id,))
+        reviews = cursor.fetchall()
+
+        maximum_star_rating = 0
+        favorite_restaurant = None
+
+        for review in reviews:
+            # Column 3 has the reviews rating
+            if review[3] > maximum_star_rating:
+                maximum_star_rating = review[3]
+                favorite_restaurant_id = review[1]  #index 1 has restaurant ids
+
+        # When there is a favorite restaurant
+        if favorite_restaurant:
+            cursor.execute("""SELECT * FROM restaurants WHERE id = ?""", (favorite_restaurant_id,))
+            favorite_restaurant_details = cursor.fetchone()
+            favorite_restaurant = Restaurant(favorite_restaurant_details[1], favorite_restaurant_details[2])
+            favorite_restaurant.id = favorite_restaurant_details[0]
+
+        return favorite_restaurant
+    
+    # Add customer's review to review db.
+    def add_review(self, restaurant, rating):
+
+        new_review = Review(restaurant, self, rating)
+        new_review.save()
+
+    # Deletes a review from the review db when both customer id and restaurant id are truthy.
+    def delete_reviews(self, restaurant):
+        cursor.execute("""DELETE FROM reviews WHERE customer_id = ? AND restaurant_id = ?""", (self.id, restaurant.id))
+
 
 class Review:
     def __init__(self, restaurant, customer, star_rating):
@@ -142,3 +180,4 @@ if __name__ == "__main__":
     sample_data()
     conn.commit()
     close_connection()
+
