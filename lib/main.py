@@ -47,7 +47,7 @@ class Restaurant:
     
     # Select all reviews on the restaurant
     def reviews(self):
-        cursor.execute("SELECT * FROM reviews WHERE restaurant_id = ?", (self.id,))
+        cursor.execute("""SELECT * FROM reviews WHERE restaurant_id = ?""", (self.id,))
         return cursor.fetchall()
     
     # Seects all customers who gave reviews on restaurant
@@ -61,9 +61,51 @@ class Restaurant:
     
     # Persist data into the db
     def save(self):
-        cursor.execute("INSERT INTO restaurants (name, price) VALUES (?, ?)", (self.name, self.price))
+        cursor.execute("""INSERT INTO restaurants (name, price) VALUES (?, ?)""", (self.name, self.price))
         self.id = cursor.lastrowid
+
+    # Selects the fanciest restaurant since it has the highest restaurant
+    @classmethod
+    def fanciest(cls):
+        cursor.execute("""SELECT * FROM restaurants ORDER BY price DESC LIMIT 1""")
+        data = cursor.fetchone()
+
+        if data:
+            fanciest_restaurant = cls(data[1], data[2])
+            fanciest_restaurant.id = data[0]
+            return fanciest_restaurant
+        else:
+            return None
     
+    # Returns a list of detailed review
+    def all_reviews(self):
+        cursor.execute("""SELECT * FROM reviews WHERE restaurant_id = ?""", (self.id,))
+        all_reviews_data = cursor.fetchall()
+
+        reviews_list = []
+
+        # Iterate through the fetched data
+        for review in all_reviews_data:
+
+            cursor.execute('''SELECT * FROM restaurants WHERE id = ?''', (review[1]))
+            restaurant_ = cursor.fetchall()
+
+            cursor.execute('''SELECT * FROM customers WHERE id = ?''', (review[2]))
+            customer_ = cursor.fetchall()
+
+            reviews_list.append(f"Review for {restaurant_[1]} by {customer_[1]} {customer_[2]}: {review[3]} stars.")
+
+        return reviews_list
+    
+    # Test method
+    @classmethod
+    def from_input(cls):
+        name = input("Enter the restaurant's name: ")
+        price = int(input("Enter the restaurant's price: "))
+        return cls(name, price)
+
+
+
 class Customer: 
     def __init__(self, first_name, last_name):
         self.first_name = first_name
@@ -131,6 +173,13 @@ class Customer:
     def delete_reviews(self, restaurant):
         cursor.execute("""DELETE FROM reviews WHERE customer_id = ? AND restaurant_id = ?""", (self.id, restaurant.id))
 
+    # Run application in CLI
+    @classmethod
+    def from_input(cls):
+        first_name = input("Enter customer's first name: ")
+        last_name = input("Enter customer's last name: ")
+        return cls(first_name, last_name)
+
 
 class Review:
     def __init__(self, restaurant, customer, star_rating):
@@ -141,43 +190,88 @@ class Review:
     def save(self):
         cursor.execute("INSERT INTO reviews (restaurant_id, customer_id, star_rating) VALUES (?, ?, ?)",
                        (self.restaurant.id, self.customer.id, self.star_rating))
-
-    def customer(self):
-        return self.customer
     
-    def restaurant(self):
-        return self.restaurant
+    # Return full review of a customer
+    def full_review(self):
+        restaurant_name = self.restaurant.name
+        customer_name = self.customer.full_name()
+        star = self.star_rating
+
+        return f"Review for {restaurant_name} by {customer_name}: {star} stars."
     
-def sample_data():
-    # Add restaurants
-    restaurant_a = Restaurant("Rusinga", 400)
-    restaurant_a.save()
-    restaurant_b = Restaurant("Mbita", 400)
-    restaurant_b.save()
-    restaurant_c = Restaurant("Sindo", 400)
-    restaurant_c.save()
+    # Run application in CLI
+    @classmethod
+    def from_input(cls, restaurant, customer):
+        star_rating = int(input("Enter star rating for the review: "))
+        return cls(restaurant, customer, star_rating)
 
-    # Add customers
-    customer_a = Customer("Judy", "Atieno")
-    customer_a.save()
-    customer_b = Customer("Sharon", "Anyango")
-    customer_b.save()
-    customer_c = Customer("Rambung'", "Fee")
-    customer_c.save()
+# Function creates a restaurant 
+def create_restaurant():
+    restaurant = Restaurant.from_input()
+    restaurant.save()
+    print(f"Restaurant '{restaurant.name}' created successfully.")
 
-    # Add reviews
-    review_a = Review(restaurant_a, customer_a, 5)
-    review_a.save()
-    review_b = Review(restaurant_b, customer_b, 5)
-    review_b.save()
-    review_c = Review(restaurant_c, customer_c, 4)
-    review_c.save()
+# Function creates a customer
+def create_customer():
+    customer = Customer.from_input()
+    customer.save()
+    print(f"Customer '{customer.full_name()}' created successfully.")
 
-def close_connection():
-    conn.close()
+# Fetches data of all restaurants to assist in rating
+def select_restaurant():
+    cursor.execute("SELECT id, name FROM restaurants")
+    restaurants = cursor.fetchall()
+    print("Available Restaurants:")
+    for restaurant in restaurants:
+        print(f"{restaurant[0]}. {restaurant[1]}")
+    restaurant_id = int(input("Enter the ID of the restaurant: "))
+    return restaurant_id
+
+# Selects customer to enable review
+def select_customer():
+    cursor.execute("SELECT id, first_name, last_name FROM customers")
+    customers = cursor.fetchall()
+    print("Available Customers:")
+    for customer in customers:
+        print(f"{customer[0]}. {customer[1]} {customer[2]}")
+    customer_id = int(input("Enter the ID of the customer: "))
+    return customer_id
+
+# Function creates a review
+def create_review():
+    restaurant_id = select_restaurant()
+    customer_id = select_customer()
+    restaurant = Restaurant("", 0)  
+    customer = Customer("", "") 
+    review = Review.from_input(restaurant, customer)
+    review.restaurant.id = restaurant_id
+    review.customer.id = customer_id
+    review.save()
+    print("Review added successfully.")
+
+# run application on the CLI
+def run_cli():
+    while True:
+        print("\nMenu:")
+        print("1. Create Restaurant")
+        print("2. Create Customer")
+        print("3. Create Review")
+        print("4. Exit")
+        choice = input("Enter your choice: ")
+
+        if choice == "1":
+            create_restaurant()
+        elif choice == "2":
+            create_customer()
+        elif choice == "3":
+            create_review()
+        elif choice == "4":
+            break
+        else:
+            print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
-    sample_data()
+    run_cli()
     conn.commit()
-    close_connection()
+    conn.close()
 
