@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS reviews (
 )
 ''')
 
-conn.commit()
+
 
 class Restaurant:
     def __init__(self, name, price):
@@ -58,6 +58,11 @@ class Restaurant:
         WHERE reviews.restaurant_id = ?
         """, (self.id,))
         return cursor.fetchall()
+    
+    # Persist data into the db
+    def save(self):
+        cursor.execute("INSERT INTO restaurants (name, price) VALUES (?, ?)", (self.name, self.price))
+        self.id = cursor.lastrowid
     
 class Customer: 
     def __init__(self, first_name, last_name):
@@ -83,12 +88,21 @@ class Customer:
         WHERE customer_id = ?
         ''', (self.id,))
         return cursor.fetchall()
+    
+    # Add data to the db
+    def save(self):
+        cursor.execute("INSERT INTO customers (first_name, last_name) VALUES (?, ?)", (self.first_name, self.last_name))
+        self.id = cursor.lastrowid
 
 class Review:
     def __init__(self, restaurant, customer, star_rating):
         self.restaurant = restaurant
         self.customer = customer
         self.star_rating = star_rating
+
+    def save(self):
+        cursor.execute("INSERT INTO reviews (restaurant_id, customer_id, star_rating) VALUES (?, ?, ?)",
+                       (self.restaurant.id, self.customer.id, self.star_rating))
 
     def customer(self):
         return self.customer
@@ -97,17 +111,34 @@ class Review:
         return self.restaurant
     
 def sample_data():
-    cursor.execute("INSERT INTO restaurants (name, price) VALUES (?, ?)", ("Restaurant A", 200))
-    cursor.execute("INSERT INTO restaurants (name, price) VALUES (?, ?)", ("Restaurant B", 300))
-    cursor.execute("INSERT INTO restaurants (name, price) VALUES (?, ?)", ("Restaurant C", 400))
+    # Add restaurants
+    restaurant_a = Restaurant("Rusinga", 400)
+    restaurant_a.save()
+    restaurant_b = Restaurant("Mbita", 400)
+    restaurant_b.save()
+    restaurant_c = Restaurant("Sindo", 400)
+    restaurant_c.save()
 
-    cursor.execute("INSERT INTO customers (first_name, last_name) VALUES (?, ?)", ("Gachewa", "Gakono"))
-    cursor.execute("INSERT INTO customers (first_name, last_name) VALUES (?, ?)", ("Ouma", "Arera"))
-    cursor.execute("INSERT INTO customers (first_name, last_name) VALUES (?, ?)", ("Kariuki", "Karanja"))
+    # Add customers
+    customer_a = Customer("Judy", "Atieno")
+    customer_a.save()
+    customer_b = Customer("Sharon", "Anyango")
+    customer_b.save()
+    customer_c = Customer("Rambung'", "Fee")
+    customer_c.save()
+
+    # Add reviews
+    review_a = Review(restaurant_a, customer_a, 5)
+    review_a.save()
+    review_b = Review(restaurant_b, customer_b, 5)
+    review_b.save()
+    review_c = Review(restaurant_c, customer_c, 4)
+    review_c.save()
 
 def close_connection():
     conn.close()
 
 if __name__ == "__main__":
     sample_data()
+    conn.commit()
     close_connection()
